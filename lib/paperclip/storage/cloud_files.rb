@@ -57,6 +57,7 @@ module Paperclip
         @@container ||= {}
         base.instance_eval do
           @cloudfiles_credentials = parse_credentials(@options[:cloudfiles_credentials])
+          @cloudfiles_connection  = @options[:cloudfiles_connection]
           @container_name         = @options[:container] || options[:container_name] || @cloudfiles_credentials[:container] || @cloudfiles_credentials[:container_name]
           @container_name         = @container_name.call(self) if @container_name.is_a?(Proc)
           @cloudfiles_options     = @options[:cloudfiles_options]     || {}
@@ -73,10 +74,11 @@ module Paperclip
       end
       
       def cloudfiles
-        @@cf ||= CloudFiles::Connection.new(:username => @cloudfiles_credentials[:username], 
-                                            :api_key => @cloudfiles_credentials[:api_key], 
-                                            :snet => @cloudfiles_credentials[:servicenet],
-                                            :auth_url => (@cloudfiles_credentials[:auth_url] || "https://auth.api.rackspacecloud.com/v1.0"))
+        @cloudfiles_connection || (raise "Trying to lazily create a connection - do this on app startup")
+        # @@cf ||= CloudFiles::Connection.new(:username => @cloudfiles_credentials[:username], 
+        #                                     :api_key => @cloudfiles_credentials[:api_key], 
+        #                                     :snet => @cloudfiles_credentials[:servicenet],
+        #                                     :auth_url => (@cloudfiles_credentials[:auth_url] || "https://auth.api.rackspacecloud.com/v1.0"))
       end
 
       def create_container
@@ -115,7 +117,7 @@ module Paperclip
         basename = File.basename(filename, extname)
         file = Tempfile.new([basename, extname])
         file.binmode
-        file.write(cloudfiles_container.object(path(style)).data)
+        file.write(cloudfiles_container.load_from_filename(file.path).data)
         file.rewind
         return file
       end
